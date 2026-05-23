@@ -218,7 +218,8 @@ EXPIRES:      {'Never (Lifetime)' if duration_days == 0 else new_license['expiry
 ║                       SUPPORT                          ║
 ╚════════════════════════════════════════════════════════╝
 
-Discord: https://discord.com/invite/DhEQBfBcpt
+Discord: [your discord server invite]
+Email:   [your support email]
 
 Thank you for your purchase!
 """
@@ -349,6 +350,38 @@ def reset_hwid():
                 })
         
         return jsonify({'error': 'User not found'}), 404
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════
+# DATABASE RESET (DANGER ZONE)
+# ═══════════════════════════════════════════════════════
+
+@app.route('/reset-database', methods=['POST'])
+def reset_database():
+    """DANGER: Wipe all users - use carefully"""
+    try:
+        data = request.json
+        admin_key = data.get('admin_key')
+        confirm = data.get('confirm')
+        
+        if admin_key != ADMIN_KEY:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        if confirm != 'YES_DELETE_EVERYTHING':
+            return jsonify({'error': 'Must confirm with YES_DELETE_EVERYTHING'}), 400
+        
+        # Delete users file
+        if USERS_FILE.exists():
+            USERS_FILE.unlink()
+        
+        print("⚠️ DATABASE WIPED - All users deleted")
+        
+        return jsonify({
+            'success': True,
+            'message': 'All users deleted. Fresh start.'
+        })
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
