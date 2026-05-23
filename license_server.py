@@ -16,7 +16,7 @@ GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 GITHUB_USERNAME = "Yunus852123"
 GITHUB_REPO = "twitch-checker-licenses"
 GITHUB_FILE = "licenses.json"
-SELLAUTH_SECRET = os.environ.get('SELLAUTH_SECRET', '')  # We'll get this from Sellauth
+SELLAUTH_SECRET = os.environ.get('SELLAUTH_SECRET', '')
 
 # ═══════════════════════════════════════════════════════
 # LICENSE GENERATION
@@ -102,10 +102,9 @@ def webhook():
         product_id = data.get('product_id', '')
         
         # Determine license duration based on product
-        # You can customize this based on your Sellauth product IDs
-        duration_days = 30  # Default to 30 days
+        duration_days = 30
         
-        # Check if it's a lifetime product (customize based on your setup)
+        # Check if it's a lifetime product
         if 'lifetime' in str(data.get('product_title', '')).lower():
             duration_days = 0
         
@@ -122,7 +121,6 @@ def webhook():
         if update_github_file(licenses, sha):
             print(f"✓ License created: {new_license['key']} for {customer_email}")
             
-            # Return license key to Sellauth (they'll send it to customer)
             return jsonify({
                 'success': True,
                 'license_key': new_license['key'],
@@ -141,7 +139,7 @@ def health():
     return jsonify({'status': 'ok'})
 
 # ═══════════════════════════════════════════════════════
-# MANUAL LICENSE CREATION (for testing)
+# MANUAL LICENSE CREATION
 # ═══════════════════════════════════════════════════════
 
 @app.route('/create-license', methods=['POST'])
@@ -168,9 +166,9 @@ def create_license_manual():
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
-        
-    @app.route('/update-hwid', methods=['POST'])
-    def update_hwid():
+
+@app.route('/update-hwid', methods=['POST'])
+def update_hwid():
     """Update license HWID after activation"""
     try:
         data = request.json
