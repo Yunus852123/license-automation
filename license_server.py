@@ -184,42 +184,28 @@ def webhook():
             # Create user account
             username, password = create_user(customer_email, new_license['key'])
             
-            # Sellauth expects specific format for dynamic delivery
-            delivery_message = f"""
-===============================================================
-            TWITCHCHECKER - LICENSE CREDENTIALS              
-===============================================================
-
-LICENSE KEY:  {new_license['key']}
-USERNAME:     {username}
-PASSWORD:     {password}
-EXPIRES:      {'Never (Lifetime)' if duration_days == 0 else new_license['expiry']}
-
-===============================================================
-                    GETTING STARTED                     
-===============================================================
-
-1. Download TwitchChecker.exe from the "Files" section above
-2. Run the program on your computer
-3. Login with your USERNAME and PASSWORD
-4. Account will lock to your computer (HWID protection)
-
-===============================================================
-                    IMPORTANT NOTES                     
-===============================================================
-
-- One license per computer only
-- Sharing credentials will result in suspension
-- For HWID reset (new PC/reinstall), contact support
-- Keep your login details safe
-
-===============================================================
-                       SUPPORT                          
-===============================================================
-
-Discord: [your discord invite]
-Email:   [your support email]
-
+delivery_message = f"""
+<strong>TWITCHCHECKER - LICENSE CREDENTIALS</strong><br>
+<br>
+LICENSE KEY: {new_license['key']}<br>
+USERNAME: {username}<br>
+PASSWORD: {password}<br>
+EXPIRES: {'Never (Lifetime)' if duration_days == 0 else new_license['expiry']}<br>
+<br>
+<strong>GETTING STARTED:</strong><br>
+1. Download TwitchChecker.exe from Files section<br>
+2. Run the program<br>
+3. Login with your USERNAME and PASSWORD<br>
+4. Account locks to your computer (HWID protection)<br>
+<br>
+<strong>IMPORTANT:</strong><br>
+- One license per computer only<br>
+- Sharing = suspension<br>
+- For HWID reset, contact support<br>
+<br>
+<strong>SUPPORT:</strong><br>
+Discord: https://discord.com/invite/DhEQBfBcpt<br>
+<br>
 Thank you for your purchase!
 """
             
