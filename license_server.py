@@ -21,7 +21,7 @@ GITHUB_FILE = "licenses.json"
 SELLAUTH_SECRET = os.environ.get('SELLAUTH_SECRET', '')
 
 USERS_FILE = Path('users.json')
-ADMIN_KEY = "TwitchChecker2026AdminKey_SecurePassword"  # Change this to your own secret key
+ADMIN_KEY = "TwitchChecker2026AdminKey_SecurePassword"
 
 # ═══════════════════════════════════════════════════════
 # USER MANAGEMENT
@@ -184,12 +184,22 @@ def webhook():
             # Create user account
             username, password = create_user(customer_email, new_license['key'])
             
+            # Sellauth expects specific format for dynamic delivery
+            delivery_message = f"""=== TwitchChecker Login Credentials ===
+
+License Key: {new_license['key']}
+Username: {username}
+Password: {password}
+
+Login at startup with your username and password.
+One account per computer (HWID locked).
+
+Support: [your discord/email]
+"""
+            
             return jsonify({
                 'success': True,
-                'license_key': new_license['key'],
-                'username': username,
-                'password': password,
-                'message': f'License Key: {new_license["key"]}\nUsername: {username}\nPassword: {password}'
+                'data': delivery_message
             })
         else:
             return jsonify({'success': False, 'message': 'Failed to update GitHub'}), 500
