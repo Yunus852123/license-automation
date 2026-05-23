@@ -185,43 +185,39 @@ def webhook():
             username, password = create_user(customer_email, new_license['key'])
             
             # Sellauth expects specific format for dynamic delivery
-            delivery_message = f"""<pre style="font-family: monospace; background: #1a1a1a; color: #00ff00; padding: 20px; border-radius: 8px;">
-            ===============================================================
-                        TWITCHCHECKER - LICENSE CREDENTIALS              
-            ===============================================================
+            delivery_message = f"""TWITCHCHECKER - LICENSE CREDENTIALS
             
-            LICENSE KEY:  {new_license['key']}
-            USERNAME:     {username}
-            PASSWORD:     {password}
-            EXPIRES:      {'Never (Lifetime)' if duration_days == 0 else new_license['expiry']}
+            LICENSE KEY: {new_license['key']}
+            USERNAME: {username}
+            PASSWORD: {password}
+            EXPIRES: {'Never (Lifetime)' if duration_days == 0 else new_license['expiry']}
             
-            ===============================================================
-                                GETTING STARTED                     
-            ===============================================================
+            ------------------------------------------------------------
             
-            1. Download TwitchChecker.exe from the "Files" section above
+            GETTING STARTED:
+            
+            1. Download TwitchChecker.exe from the Files section above
             2. Run the program on your computer
             3. Login with your USERNAME and PASSWORD
-            4. Account will lock to your computer (HWID protection)
+            4. Your account will lock to this computer (HWID protection)
             
-            ===============================================================
-                                IMPORTANT NOTES                     
-            ===============================================================
+            ------------------------------------------------------------
+            
+            IMPORTANT NOTES:
             
             - One license per computer only
             - Sharing credentials will result in suspension
             - For HWID reset (new PC/reinstall), contact support
             - Keep your login details safe
             
-            ===============================================================
-                                   SUPPORT                          
-            ===============================================================
+            ------------------------------------------------------------
+            
+            SUPPORT:
             
             Discord: [your discord invite]
-            Email:   [your support email]
+            Email: [your support email]
             
-            Thank you for your purchase!
-            </pre>"""
+            Thank you for your purchase!"""
             
             return jsonify({
                 'success': True,
