@@ -168,6 +168,35 @@ def create_license_manual():
     
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+        
+    @app.route('/update-hwid', methods=['POST'])
+    def update_hwid():
+    """Update license HWID after activation"""
+    try:
+        data = request.json
+        license_key = data.get('license_key')
+        hwid = data.get('hwid')
+        
+        # Get current licenses from GitHub
+        licenses, sha = get_github_file()
+        
+        # Find and update the license
+        updated = False
+        for lic in licenses:
+            if lic['key'] == license_key:
+                lic['hwid'] = hwid
+                updated = True
+                break
+        
+        if updated:
+            # Push back to GitHub
+            if update_github_file(licenses, sha):
+                return jsonify({'success': True})
+        
+        return jsonify({'success': False, 'message': 'License not found'}), 404
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
