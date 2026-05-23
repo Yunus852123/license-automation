@@ -100,32 +100,23 @@ def webhook():
         print("WEBHOOK RECEIVED:")
         print(json.dumps(data, indent=2))
         
-        # Get custom fields (Sellauth sends them as a dict or list)
-        custom_fields = data.get('custom_fields', {})
+        # Extract customer info from Sellauth structure
+        customer = data.get('customer', {})
+        item = data.get('item', {})
+        variant = item.get('variant', {}) if item else {}
         
-        # Extract customer email - try multiple possible locations
-        customer_email = (
-            custom_fields.get('Email Address') or
-            custom_fields.get('email_address') or
-            custom_fields.get('email') or
-            data.get('customer_email') or
-            data.get('email') or
-            data.get('buyer_email') or
-            'no-email-provided'
-        )
+        customer_email = customer.get('email', 'no-email-provided')
+        customer_name = customer_email.split('@')[0]  # Use email username as name
         
-        customer_name = data.get('customer_name') or data.get('buyer_name') or customer_email.split('@')[0]
-        
-        # Determine license duration based on variant
-        variant_title = str(data.get('variant_title', '')).lower()
-        product_title = str(data.get('product_title', '')).lower()
+        # Determine license duration based on variant name
+        variant_name = variant.get('name', '').lower() if variant else ''
 
-        if 'lifetime' in variant_title or 'lifetime' in product_title:
+        if 'lifetime' in variant_name:
             duration_days = 0
-        elif '30 days' in variant_title or '30 day' in variant_title:
+        elif '30 days' in variant_name or '30 day' in variant_name:
             duration_days = 30
         else:
-            duration_days = 30
+            duration_days = 30  # Default
         
         # Generate license
         new_license = create_license(duration_days, customer_email, customer_name)
@@ -150,6 +141,8 @@ def webhook():
     
     except Exception as e:
         print(f"Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/health', methods=['GET'])
