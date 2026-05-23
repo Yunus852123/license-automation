@@ -21,6 +21,7 @@ GITHUB_FILE = "licenses.json"
 SELLAUTH_SECRET = os.environ.get('SELLAUTH_SECRET', '')
 
 USERS_FILE = Path('users.json')
+ADMIN_KEY = "TwitchChecker2026AdminKey_SecurePassword"  # Change this to your own secret key
 
 # ═══════════════════════════════════════════════════════
 # USER MANAGEMENT
@@ -55,6 +56,7 @@ def create_user(email, license_key):
         'password': password,
         'email': email,
         'license_key': license_key,
+        'hwid': None,
         'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'active': True,
         'last_login': None
@@ -204,12 +206,12 @@ def health():
     return jsonify({'status': 'ok'})
 
 # ═══════════════════════════════════════════════════════
-# LOGIN ENDPOINT
+# LOGIN ENDPOINT WITH HWID LOCKING
 # ═══════════════════════════════════════════════════════
 
 @app.route('/login', methods=['POST'])
 def login():
-    """Authenticate user"""
+    """Authenticate user with HWID locking"""
     try:
         data = request.json
         username = data.get('username')
@@ -219,14 +221,30 @@ def login():
         # Load users
         users = load_users()
         
-        for user in users:
+        for i, user in enumerate(users):
             if user['username'] == username and user['password'] == password:
                 if not user['active']:
                     return jsonify({'error': 'Account disabled'}), 403
                 
-                # Update last login
-                user['last_login'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                save_users(users)
+                # HWID locking check
+                user_hwid = user.get('hwid')
+                
+                if user_hwid is None:
+                    # First login - bind to this HWID
+                    user['hwid'] = hwid
+                    user['last_login'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    users[i] = user
+                    save_users(users)
+                    print(f"✓ Account {username} bound to HWID {hwid[:8]}...")
+                    
+                elif user_hwid != hwid:
+                    # Trying to login from different computer
+                    return jsonify({'error': 'Account already activated on another computer'}), 403
+                else:
+                    # Same computer - update last login
+                    user['last_login'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    users[i] = user
+                    save_users(users)
                 
                 # Verify their license is still valid
                 license_key = user['license_key']
@@ -256,6 +274,45 @@ def login():
                 return jsonify({'error': 'License not found'}), 404
         
         return jsonify({'error': 'Invalid credentials'}), 401
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ═══════════════════════════════════════════════════════
+# HWID RESET ENDPOINT
+# ═══════════════════════════════════════════════════════
+
+@app.route('/reset-hwid', methods=['POST'])
+def reset_hwid():
+    """Reset user's HWID - for support/upgrades"""
+    try:
+        data = request.json
+        username = data.get('username')
+        admin_key = data.get('admin_key')
+        
+        # Admin authentication
+        if admin_key != ADMIN_KEY:
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        # Load users
+        users = load_users()
+        
+        for i, user in enumerate(users):
+            if user['username'] == username:
+                # Reset HWID
+                old_hwid = user.get('hwid', 'None')
+                user['hwid'] = None
+                users[i] = user
+                save_users(users)
+                
+                print(f"✓ HWID reset for {username} (was: {old_hwid[:8] if old_hwid else 'None'}...)")
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'HWID reset for {username}. They can login from new PC now.'
+                })
+        
+        return jsonify({'error': 'User not found'}), 404
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
