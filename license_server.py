@@ -104,9 +104,17 @@ def webhook():
         # Determine license duration based on product
         duration_days = 30
         
-        # Check if it's a lifetime product
-        if 'lifetime' in str(data.get('product_title', '')).lower():
+        # Determine license duration based on variant name
+        variant_title = str(data.get('variant_title', '')).lower()
+        product_title = str(data.get('product_title', '')).lower()
+
+        if 'lifetime' in variant_title or 'lifetime' in product_title:
             duration_days = 0
+        elif '30 days' in variant_title or '30 day' in variant_title:
+            duration_days = 30
+        else:
+            # Default to 30 days if can't detect
+            duration_days = 30
         
         # Generate license
         new_license = create_license(duration_days, customer_email, customer_name)
