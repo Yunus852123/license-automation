@@ -9,7 +9,7 @@ import os
 app = Flask(__name__)
 
 # ═══════════════════════════════════════════════════════
-# CONFIGURATION - REPLACE THESE
+# CONFIGURATION
 # ═══════════════════════════════════════════════════════
 
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
@@ -96,15 +96,27 @@ def webhook():
     try:
         data = request.json
         
-        # Extract customer info from Sellauth webhook
-        customer_email = data.get('customer_email', '')
-        customer_name = data.get('customer_name', '')
-        product_id = data.get('product_id', '')
+        # Log the webhook for debugging
+        print("WEBHOOK RECEIVED:")
+        print(json.dumps(data, indent=2))
         
-        # Determine license duration based on product
-        duration_days = 30
+        # Get custom fields (Sellauth sends them as a dict or list)
+        custom_fields = data.get('custom_fields', {})
         
-        # Determine license duration based on variant name
+        # Extract customer email - try multiple possible locations
+        customer_email = (
+            custom_fields.get('Email Address') or
+            custom_fields.get('email_address') or
+            custom_fields.get('email') or
+            data.get('customer_email') or
+            data.get('email') or
+            data.get('buyer_email') or
+            'no-email-provided'
+        )
+        
+        customer_name = data.get('customer_name') or data.get('buyer_name') or customer_email.split('@')[0]
+        
+        # Determine license duration based on variant
         variant_title = str(data.get('variant_title', '')).lower()
         product_title = str(data.get('product_title', '')).lower()
 
@@ -113,7 +125,6 @@ def webhook():
         elif '30 days' in variant_title or '30 day' in variant_title:
             duration_days = 30
         else:
-            # Default to 30 days if can't detect
             duration_days = 30
         
         # Generate license
