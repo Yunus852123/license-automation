@@ -186,43 +186,42 @@ def webhook():
             
             # Sellauth expects specific format for dynamic delivery
             delivery_message = f"""╔════════════════════════════════════════════════════════╗
-            ║              TWITCHCHECKER - LICENSE INFO              ║
-            ╚════════════════════════════════════════════════════════╝
+║              TWITCHCHECKER - LICENSE INFO              ║
+╚════════════════════════════════════════════════════════╝
 
-            LICENSE KEY:  {new_license['key']}
-            USERNAME:     {username}
-            PASSWORD:     {password}
-            EXPIRES:      {'Never (Lifetime)' if duration_days == 0 else new_license['expiry']}
+LICENSE KEY:  {new_license['key']}
+USERNAME:     {username}
+PASSWORD:     {password}
+EXPIRES:      {'Never (Lifetime)' if duration_days == 0 else new_license['expiry']}
 
-            ╔════════════════════════════════════════════════════════╗
-            ║                    GETTING STARTED                     ║
-            ╚════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════╗
+║                    GETTING STARTED                     ║
+╚════════════════════════════════════════════════════════╝
 
-            1. Download the checker from the "Files" section
-            2. Run TwitchChecker.exe
-            3. Enter your USERNAME and PASSWORD when prompted
-            4. Your account will bind to this computer (HWID locked)
+1. Download the checker from the "Files" section
+2. Run TwitchChecker.exe
+3. Enter your USERNAME and PASSWORD when prompted
+4. Your account will bind to this computer (HWID locked)
 
-            ╔════════════════════════════════════════════════════════╗
-            ║                    IMPORTANT NOTES                     ║
-            ╚════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════╗
+║                    IMPORTANT NOTES                     ║
+╚════════════════════════════════════════════════════════╝
 
-            - One account per computer - attempting to use on multiple
-              PCs will result in account suspension
-              
-            - Keep your credentials safe - do not share them
-              
-            - For HWID reset (PC upgrade/reinstall), contact support
+- One account per computer - attempting to use on multiple
+  PCs will result in account suspension
+  
+- Keep your credentials safe - do not share them
+  
+- For HWID reset (PC upgrade/reinstall), contact support
 
-            ╔════════════════════════════════════════════════════════╗
-            ║                       SUPPORT                          ║
-            ╚════════════════════════════════════════════════════════╝
+╔════════════════════════════════════════════════════════╗
+║                       SUPPORT                          ║
+╚════════════════════════════════════════════════════════╝
 
-            Discord: [your discord server invite]
-            Email:   [your support email]
+Discord: https://discord.com/invite/DhEQBfBcpt
 
-            Thank you for your purchase!
-            """
+Thank you for your purchase!
+"""
             
             return jsonify({
                 'success': True,
@@ -415,7 +414,7 @@ def update_hwid():
         return jsonify({'success': False, 'message': 'License not found'}), 404
     
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
