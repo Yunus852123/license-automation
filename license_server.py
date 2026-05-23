@@ -184,8 +184,8 @@ def webhook():
             # Create user account
             username, password = create_user(customer_email, new_license['key'])
             
-# Sellauth expects specific format for dynamic delivery
-delivery_message = f"""
+            # Sellauth expects specific format for dynamic delivery
+            delivery_message = f"""
 ===============================================================
             TWITCHCHECKER - LICENSE CREDENTIALS              
 ===============================================================
