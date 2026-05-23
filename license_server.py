@@ -184,40 +184,19 @@ def webhook():
             # Create user account
             username, password = create_user(customer_email, new_license['key'])
             
-            # Sellauth expects specific format for dynamic delivery
-            delivery_message = f"""TWITCHCHECKER - LICENSE CREDENTIALS
-            
-            LICENSE KEY: {new_license['key']}
-            USERNAME: {username}
-            PASSWORD: {password}
-            EXPIRES: {'Never (Lifetime)' if duration_days == 0 else new_license['expiry']}
-            
-            ------------------------------------------------------------
-            
-            GETTING STARTED:
-            
-            1. Download TwitchChecker.exe from the Files section above
-            2. Run the program on your computer
-            3. Login with your USERNAME and PASSWORD
-            4. Your account will lock to this computer (HWID protection)
-            
-            ------------------------------------------------------------
-            
-            IMPORTANT NOTES:
-            
-            - One license per computer only
-            - Sharing credentials will result in suspension
-            - For HWID reset (new PC/reinstall), contact support
-            - Keep your login details safe
-            
-            ------------------------------------------------------------
-            
-            SUPPORT:
-            
-            Discord: [your discord invite]
-            Email: [your support email]
-            
-            Thank you for your purchase!"""
+            # Simple delivery message
+            delivery_message = f"""LICENSE KEY: {new_license['key']}
+USERNAME: {username}
+PASSWORD: {password}
+EXPIRES: {'Never (Lifetime)' if duration_days == 0 else new_license['expiry']}
+
+Download TwitchChecker.exe from the Files section above.
+Run the program and login with your USERNAME and PASSWORD.
+Your account will lock to your computer (HWID protection - one PC only).
+
+For HWID reset (new PC/reinstall), contact support.
+
+Thank you for your purchase!"""
             
             return jsonify({
                 'success': True,
