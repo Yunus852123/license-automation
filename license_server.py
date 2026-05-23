@@ -5,6 +5,8 @@ import requests
 from datetime import datetime, timedelta
 import base64
 import os
+import string
+from pathlib import Path
 
 app = Flask(__name__)
 
@@ -17,6 +19,52 @@ GITHUB_USERNAME = "Yunus852123"
 GITHUB_REPO = "twitch-checker-licenses"
 GITHUB_FILE = "licenses.json"
 SELLAUTH_SECRET = os.environ.get('SELLAUTH_SECRET', '')
+
+USERS_FILE = Path('users.json')
+
+# ═══════════════════════════════════════════════════════
+# USER MANAGEMENT
+# ═══════════════════════════════════════════════════════
+
+def generate_username():
+    """Generate random username"""
+    return f"user_{secrets.token_hex(4)}"
+
+def generate_password():
+    """Generate random password"""
+    chars = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(chars) for _ in range(12))
+
+def load_users():
+    """Load users from file"""
+    if USERS_FILE.exists():
+        return json.loads(USERS_FILE.read_text())
+    return []
+
+def save_users(users):
+    """Save users to file"""
+    USERS_FILE.write_text(json.dumps(users, indent=2))
+
+def create_user(email, license_key):
+    """Create new user account"""
+    username = generate_username()
+    password = generate_password()
+    
+    user = {
+        'username': username,
+        'password': password,
+        'email': email,
+        'license_key': license_key,
+        'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'active': True,
+        'last_login': None
+    }
+    
+    users = load_users()
+    users.append(user)
+    save_users(users)
+    
+    return username, password
 
 # ═══════════════════════════════════════════════════════
 # LICENSE GENERATION
@@ -106,7 +154,7 @@ def webhook():
         variant = item.get('variant', {}) if item else {}
         
         customer_email = customer.get('email', 'no-email-provided')
-        customer_name = customer_email.split('@')[0]  # Use email username as name
+        customer_name = customer_email.split('@')[0]
         
         # Determine license duration based on variant name
         variant_name = variant.get('name', '').lower() if variant else ''
@@ -116,7 +164,7 @@ def webhook():
         elif '30 days' in variant_name or '30 day' in variant_name:
             duration_days = 30
         else:
-            duration_days = 30  # Default
+            duration_days = 30
         
         # Generate license
         new_license = create_license(duration_days, customer_email, customer_name)
@@ -131,10 +179,15 @@ def webhook():
         if update_github_file(licenses, sha):
             print(f"✓ License created: {new_license['key']} for {customer_email}")
             
+            # Create user account
+            username, password = create_user(customer_email, new_license['key'])
+            
             return jsonify({
                 'success': True,
                 'license_key': new_license['key'],
-                'message': f'Your license key: {new_license["key"]}'
+                'username': username,
+                'password': password,
+                'message': f'License Key: {new_license["key"]}\nUsername: {username}\nPassword: {password}'
             })
         else:
             return jsonify({'success': False, 'message': 'Failed to update GitHub'}), 500
@@ -149,6 +202,63 @@ def webhook():
 def health():
     """Health check endpoint"""
     return jsonify({'status': 'ok'})
+
+# ═══════════════════════════════════════════════════════
+# LOGIN ENDPOINT
+# ═══════════════════════════════════════════════════════
+
+@app.route('/login', methods=['POST'])
+def login():
+    """Authenticate user"""
+    try:
+        data = request.json
+        username = data.get('username')
+        password = data.get('password')
+        hwid = data.get('hwid')
+        
+        # Load users
+        users = load_users()
+        
+        for user in users:
+            if user['username'] == username and user['password'] == password:
+                if not user['active']:
+                    return jsonify({'error': 'Account disabled'}), 403
+                
+                # Update last login
+                user['last_login'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                save_users(users)
+                
+                # Verify their license is still valid
+                license_key = user['license_key']
+                licenses, _ = get_github_file()
+                
+                for lic in licenses:
+                    if lic['key'] == license_key:
+                        if not lic['active']:
+                            return jsonify({'error': 'License expired'}), 403
+                        
+                        # Check expiry
+                        if lic['expiry'] != 'lifetime':
+                            expiry_date = datetime.strptime(lic['expiry'], '%Y-%m-%d')
+                            if datetime.now() > expiry_date:
+                                return jsonify({'error': 'License expired'}), 403
+                        
+                        # Generate session token
+                        session_token = secrets.token_hex(32)
+                        
+                        return jsonify({
+                            'success': True,
+                            'session_token': session_token,
+                            'license_key': license_key,
+                            'expiry': lic['expiry']
+                        })
+                
+                return jsonify({'error': 'License not found'}), 404
+        
+        return jsonify({'error': 'Invalid credentials'}), 401
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # ═══════════════════════════════════════════════════════
 # MANUAL LICENSE CREATION
@@ -169,9 +279,14 @@ def create_license_manual():
         licenses.append(new_license)
         
         if update_github_file(licenses, sha):
+            # Also create user
+            username, password = create_user(customer_email, new_license['key'])
+            
             return jsonify({
                 'success': True,
-                'license_key': new_license['key']
+                'license_key': new_license['key'],
+                'username': username,
+                'password': password
             })
         else:
             return jsonify({'success': False, 'message': 'GitHub update failed'}), 500
