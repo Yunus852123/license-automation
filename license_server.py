@@ -5,8 +5,6 @@ import requests
 from datetime import datetime, timedelta
 import base64
 import os
-import string
-from pathlib import Path
 
 app = Flask(__name__)
 
@@ -18,55 +16,6 @@ GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 GITHUB_USERNAME = "Yunus852123"
 GITHUB_REPO = "twitch-checker-licenses"
 GITHUB_FILE = "licenses.json"
-SELLAUTH_SECRET = os.environ.get('SELLAUTH_SECRET', '')
-
-USERS_FILE = Path('users.json')
-ADMIN_KEY = "TwitchChecker2026AdminKey_SecurePassword"
-
-# ═══════════════════════════════════════════════════════
-# USER MANAGEMENT
-# ═══════════════════════════════════════════════════════
-
-def generate_username():
-    """Generate random username"""
-    return f"user_{secrets.token_hex(4)}"
-
-def generate_password():
-    """Generate random password"""
-    chars = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(chars) for _ in range(12))
-
-def load_users():
-    """Load users from file"""
-    if USERS_FILE.exists():
-        return json.loads(USERS_FILE.read_text())
-    return []
-
-def save_users(users):
-    """Save users to file"""
-    USERS_FILE.write_text(json.dumps(users, indent=2))
-
-def create_user(email, license_key):
-    """Create new user account"""
-    username = generate_username()
-    password = generate_password()
-    
-    user = {
-        'username': username,
-        'password': password,
-        'email': email,
-        'license_key': license_key,
-        'hwid': None,
-        'created': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'active': True,
-        'last_login': None
-    }
-    
-    users = load_users()
-    users.append(user)
-    save_users(users)
-    
-    return username, password
 
 # ═══════════════════════════════════════════════════════
 # LICENSE GENERATION
@@ -146,11 +95,10 @@ def webhook():
     try:
         data = request.json
         
-        # Log the webhook for debugging
         print("WEBHOOK RECEIVED:")
         print(json.dumps(data, indent=2))
         
-        # Extract customer info from Sellauth structure
+        # Extract customer info
         customer = data.get('customer', {})
         item = data.get('item', {})
         variant = item.get('variant', {}) if item else {}
@@ -158,7 +106,7 @@ def webhook():
         customer_email = customer.get('email', 'no-email-provided')
         customer_name = customer_email.split('@')[0]
         
-        # Determine license duration based on variant name
+        # Determine duration
         variant_name = variant.get('name', '').lower() if variant else ''
 
         if 'lifetime' in variant_name:
@@ -181,28 +129,17 @@ def webhook():
         if update_github_file(licenses, sha):
             print(f"✓ License created: {new_license['key']} for {customer_email}")
             
-        # Create user account
-        try:
-            username, password = create_user(customer_email, new_license['key'])
-            print(f"✓ User created: {username} / {password}")
-        except Exception as user_error:
-            print(f"✗ User creation FAILED: {str(user_error)}")
-            import traceback
-            traceback.print_exc()
-            username = "ERROR"
-            password = "ERROR"
-            
             # Simple delivery message
+            expiry_text = "Never (Lifetime)" if duration_days == 0 else new_license['expiry']
+            
             delivery_message = f"""LICENSE KEY: {new_license['key']}
-USERNAME: {username}
-PASSWORD: {password}
-EXPIRES: {'Never (Lifetime)' if duration_days == 0 else new_license['expiry']}
+EXPIRES: {expiry_text}
 
-Download TwitchChecker.exe from the Files section above.
-Run the program and login with your USERNAME and PASSWORD.
-Your account will lock to your computer (HWID protection - one PC only).
+Download TwitchChecker.exe from the Files section.
+Run the program and enter your license key.
+License locks to your computer (one PC only).
 
-For HWID reset (new PC/reinstall), contact support.
+For support, contact: https://discord.com/invite/DhEQBfBcpt
 
 Thank you for your purchase!"""
             
@@ -211,7 +148,7 @@ Thank you for your purchase!"""
                 'data': delivery_message
             })
         else:
-            return jsonify({'success': False, 'message': 'Failed to update GitHub'}), 500
+            return jsonify({'success': False, 'message': 'GitHub update failed'}), 500
     
     except Exception as e:
         print(f"Error: {str(e)}")
@@ -221,212 +158,55 @@ Thank you for your purchase!"""
 
 @app.route('/health', methods=['GET'])
 def health():
-    """Health check endpoint"""
+    """Health check"""
     return jsonify({'status': 'ok'})
 
-# ═══════════════════════════════════════════════════════
-# LOGIN ENDPOINT WITH HWID LOCKING
-# ═══════════════════════════════════════════════════════
-
-@app.route('/login', methods=['POST'])
-def login():
-    """Authenticate user with HWID locking"""
-    try:
-        data = request.json
-        username = data.get('username')
-        password = data.get('password')
-        hwid = data.get('hwid')
-        
-        # Load users
-        users = load_users()
-        
-        for i, user in enumerate(users):
-            if user['username'] == username and user['password'] == password:
-                if not user['active']:
-                    return jsonify({'error': 'Account disabled'}), 403
-                
-                # HWID locking check
-                user_hwid = user.get('hwid')
-                
-                if user_hwid is None:
-                    # First login - bind to this HWID
-                    user['hwid'] = hwid
-                    user['last_login'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    users[i] = user
-                    save_users(users)
-                    print(f"✓ Account {username} bound to HWID {hwid[:8]}...")
-                    
-                elif user_hwid != hwid:
-                    # Trying to login from different computer
-                    return jsonify({'error': 'Account already activated on another computer'}), 403
-                else:
-                    # Same computer - update last login
-                    user['last_login'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    users[i] = user
-                    save_users(users)
-                
-                # Verify their license is still valid
-                license_key = user['license_key']
-                licenses, _ = get_github_file()
-                
-                for lic in licenses:
-                    if lic['key'] == license_key:
-                        if not lic['active']:
-                            return jsonify({'error': 'License expired'}), 403
-                        
-                        # Check expiry
-                        if lic['expiry'] != 'lifetime':
-                            expiry_date = datetime.strptime(lic['expiry'], '%Y-%m-%d')
-                            if datetime.now() > expiry_date:
-                                return jsonify({'error': 'License expired'}), 403
-                        
-                        # Generate session token
-                        session_token = secrets.token_hex(32)
-                        
-                        return jsonify({
-                            'success': True,
-                            'session_token': session_token,
-                            'license_key': license_key,
-                            'expiry': lic['expiry']
-                        })
-                
-                return jsonify({'error': 'License not found'}), 404
-        
-        return jsonify({'error': 'Invalid credentials'}), 401
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# ═══════════════════════════════════════════════════════
-# HWID RESET ENDPOINT
-# ═══════════════════════════════════════════════════════
-
-@app.route('/reset-hwid', methods=['POST'])
-def reset_hwid():
-    """Reset user's HWID - for support/upgrades"""
-    try:
-        data = request.json
-        username = data.get('username')
-        admin_key = data.get('admin_key')
-        
-        # Admin authentication
-        if admin_key != ADMIN_KEY:
-            return jsonify({'error': 'Unauthorized'}), 401
-        
-        # Load users
-        users = load_users()
-        
-        for i, user in enumerate(users):
-            if user['username'] == username:
-                # Reset HWID
-                old_hwid = user.get('hwid', 'None')
-                user['hwid'] = None
-                users[i] = user
-                save_users(users)
-                
-                print(f"✓ HWID reset for {username} (was: {old_hwid[:8] if old_hwid else 'None'}...)")
-                
-                return jsonify({
-                    'success': True,
-                    'message': f'HWID reset for {username}. They can login from new PC now.'
-                })
-        
-        return jsonify({'error': 'User not found'}), 404
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# ═══════════════════════════════════════════════════════
-# DATABASE RESET (DANGER ZONE)
-# ═══════════════════════════════════════════════════════
-
-@app.route('/reset-database', methods=['POST'])
-def reset_database():
-    """DANGER: Wipe all users - use carefully"""
-    try:
-        data = request.json
-        admin_key = data.get('admin_key')
-        confirm = data.get('confirm')
-        
-        if admin_key != ADMIN_KEY:
-            return jsonify({'error': 'Unauthorized'}), 401
-        
-        if confirm != 'YES_DELETE_EVERYTHING':
-            return jsonify({'error': 'Must confirm with YES_DELETE_EVERYTHING'}), 400
-        
-        # Delete users file
-        if USERS_FILE.exists():
-            USERS_FILE.unlink()
-        
-        print("⚠️ DATABASE WIPED - All users deleted")
-        
-        return jsonify({
-            'success': True,
-            'message': 'All users deleted. Fresh start.'
-        })
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# ═══════════════════════════════════════════════════════
-# MANUAL LICENSE CREATION
-# ═══════════════════════════════════════════════════════
-
-@app.route('/create-license', methods=['POST'])
-def create_license_manual():
-    """Manually create a license (for testing)"""
-    try:
-        data = request.json
-        customer_email = data.get('email', 'test@test.com')
-        customer_name = data.get('name', 'Test User')
-        duration_days = data.get('days', 30)
-        
-        new_license = create_license(duration_days, customer_email, customer_name)
-        
-        licenses, sha = get_github_file()
-        licenses.append(new_license)
-        
-        if update_github_file(licenses, sha):
-            # Also create user
-            username, password = create_user(customer_email, new_license['key'])
-            
-            return jsonify({
-                'success': True,
-                'license_key': new_license['key'],
-                'username': username,
-                'password': password
-            })
-        else:
-            return jsonify({'success': False, 'message': 'GitHub update failed'}), 500
-    
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)}), 500
-
-@app.route('/update-hwid', methods=['POST'])
-def update_hwid():
-    """Update license HWID after activation"""
+@app.route('/bind-hwid', methods=['POST'])
+def bind_hwid():
+    """Bind license to HWID"""
     try:
         data = request.json
         license_key = data.get('license_key')
         hwid = data.get('hwid')
         
-        # Get current licenses from GitHub
         licenses, sha = get_github_file()
         
-        # Find and update the license
-        updated = False
         for lic in licenses:
             if lic['key'] == license_key:
                 lic['hwid'] = hwid
-                updated = True
                 break
         
-        if updated:
-            # Push back to GitHub
-            if update_github_file(licenses, sha):
-                return jsonify({'success': True})
+        if update_github_file(licenses, sha):
+            return jsonify({'success': True})
         
-        return jsonify({'success': False, 'message': 'License not found'}), 404
+        return jsonify({'success': False}), 500
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/reset-hwid', methods=['POST'])
+def reset_hwid():
+    """Reset license HWID"""
+    try:
+        data = request.json
+        license_key = data.get('license_key')
+        admin_key = data.get('admin_key')
+        
+        if admin_key != 'TwitchChecker2026AdminKey_SecurePassword':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        licenses, sha = get_github_file()
+        
+        for lic in licenses:
+            if lic['key'] == license_key:
+                lic['hwid'] = None
+                break
+        
+        if update_github_file(licenses, sha):
+            print(f"✓ HWID reset for {license_key}")
+            return jsonify({'success': True})
+        
+        return jsonify({'success': False}), 500
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
