@@ -181,8 +181,16 @@ def webhook():
         if update_github_file(licenses, sha):
             print(f"✓ License created: {new_license['key']} for {customer_email}")
             
-            # Create user account
+        # Create user account
+        try:
             username, password = create_user(customer_email, new_license['key'])
+            print(f"✓ User created: {username} / {password}")
+        except Exception as user_error:
+            print(f"✗ User creation FAILED: {str(user_error)}")
+            import traceback
+            traceback.print_exc()
+            username = "ERROR"
+            password = "ERROR"
             
             # Simple delivery message
             delivery_message = f"""LICENSE KEY: {new_license['key']}
