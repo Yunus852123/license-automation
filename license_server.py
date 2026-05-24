@@ -160,6 +160,15 @@ Thank you for your purchase!"""
 def health():
     """Health check"""
     return jsonify({'status': 'ok'})
+    
+@app.route('/', methods=['GET'])
+def index():
+    """Root endpoint - keeps server warm"""
+    return jsonify({
+        'status': 'online',
+        'service': 'TwitchChecker License Server',
+        'timestamp': datetime.now().isoformat()
+    })
 
 @app.route('/bind-hwid', methods=['POST'])
 def bind_hwid():
